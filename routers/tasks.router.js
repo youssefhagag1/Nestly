@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
         }
 })
 const upload = multer({ storage: storage })
-router.route("/")
+router.route("/") 
         .get(verifyToken , allowTo(CHILD) , getTasks)
 router.route("/points")
         .get(verifyToken , getChildPoints)
