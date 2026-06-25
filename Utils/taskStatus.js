@@ -1,4 +1,0 @@
-const COMPLETE = "COMPLETE";
-const IN_PROGRESS = "IN_PROGRESS";
-const PENDING = "PENDING";
-module.exports = [COMPLETE , IN_PROGRESS , PENDING];
