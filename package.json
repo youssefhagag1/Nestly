@@ -1,0 +1,30 @@
+{
+  "name": "nestly",
+  "version": "1.0.0",
+  "description": "A full-stack web application built with React, Node.js, Express, and MongoDB",
+  "main": "index.js",
+  "scripts": {
+    "client": "npm run dev --prefix Client",
+    "server": "npm run dev --prefix Server",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "keywords": [
+    "react",
+    "nodejs",
+    "express",
+    "mongodb",
+    "fullstack"
+  ],
+  "author": "Youssef Hagag",
+  "license": "ISC",
+  "devDependencies": {
+    "concurrently": "^10.0.3"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cookie-parser": "^1.4.7",
+    "express-async-handler": "^1.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.11.0"
+  }
+}
