@@ -1,6 +1,13 @@
 const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/ApiError");
 const Nesta = require("../models/nestaModel");
+const {
+  getUserNestas,
+  getMyNestas,
+  getAllNestas,
+  searchNestas,
+} = require("../services/nestaService");
+const { processMultipleImages } = require("../utils/imageProcessing");
 
 // Helper to sanitize anonymous nesta responses
 const sanitizeNesta = (nesta) => {
@@ -21,10 +28,17 @@ const sanitizeNesta = (nesta) => {
 exports.createNesta = asyncHandler(async (req, res) => {
   const { content, isAnonymous } = req.body;
 
+  // Process uploaded images if any
+  let images = [];
+  if (req.files && req.files.length > 0) {
+    images = await processMultipleImages(req.files, "nestas");
+  }
+
   const nesta = await Nesta.create({
     author: req.user._id,
     content,
     isAnonymous: isAnonymous || false,
+    images,
   });
 
   res.status(201).json({
@@ -35,14 +49,37 @@ exports.createNesta = asyncHandler(async (req, res) => {
 
 // ================= GET ALL NESTAS =================
 exports.getAllNestas = asyncHandler(async (req, res) => {
-  const nestas = await Nesta.find().sort("-createdAt");
-
-  const sanitized = nestas.map((n) => sanitizeNesta(n));
+  const result = await getAllNestas(req.query);
 
   res.status(200).json({
     success: true,
-    count: sanitized.length,
-    data: sanitized,
+    count: result.data.length,
+    data: result.data,
+    pagination: result.pagination,
+  });
+});
+
+// ================= GET MY NESTAS =================
+exports.getMyNestas = asyncHandler(async (req, res) => {
+  const result = await getMyNestas(req.user._id, req.query);
+
+  res.status(200).json({
+    success: true,
+    count: result.data.length,
+    data: result.data,
+    pagination: result.pagination,
+  });
+});
+
+// ================= GET USER NESTAS =================
+exports.getUserNestas = asyncHandler(async (req, res) => {
+  const result = await getUserNestas(req.params.userId, req.query);
+
+  res.status(200).json({
+    success: true,
+    count: result.data.length,
+    data: result.data,
+    pagination: result.pagination,
   });
 });
 
@@ -64,11 +101,47 @@ exports.updateNesta = asyncHandler(async (req, res) => {
   if (content !== undefined) nesta.content = content;
   if (isAnonymous !== undefined) nesta.isAnonymous = isAnonymous;
 
+  // Process new uploaded images if any (replace existing images)
+  if (req.files && req.files.length > 0) {
+    const newImages = await processMultipleImages(req.files, "nestas");
+    nesta.images = newImages;
+  }
+
   await nesta.save();
 
   res.status(200).json({
     success: true,
     data: sanitizeNesta(nesta),
+  });
+});
+
+// ================= SEARCH NESTAS =================
+exports.searchNestas = asyncHandler(async (req, res) => {
+  const { q } = req.query;
+
+  if (!q || !q.trim()) {
+    return res.status(200).json({
+      success: true,
+      count: 0,
+      data: [],
+      pagination: {
+        currentPage: 1,
+        itemsPerPage: 10,
+        totalPages: 0,
+        totalItems: 0,
+        hasNextPage: false,
+        hasPrevPage: false,
+      },
+    });
+  }
+
+  const result = await searchNestas(q.trim(), req.query);
+
+  res.status(200).json({
+    success: true,
+    count: result.data.length,
+    data: result.data,
+    pagination: result.pagination,
   });
 });
 

@@ -10,6 +10,8 @@ const {
   reviewTask,
   updateTask,
   deleteTask,
+  getSubmission,
+  deleteSubmission,
 } = require("../controllers/taskController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -25,6 +27,8 @@ const {
   reviewTaskValidator,
   updateTaskValidator,
   deleteTaskValidator,
+  getSubmissionValidator,
+  deleteSubmissionValidator,
 } = require("../validators/taskValidator");
 
 // All task routes require authentication
@@ -49,5 +53,9 @@ router.route("/:taskId")
 
 // Nested submission routes — /api/v1/tasks/:taskId/submissions
 router.use("/:taskId/submissions", submissionRoutes);
+
+// Additional submission routes
+router.get("/:taskId/submissions/:submissionId", getSubmissionValidator, getSubmission);
+router.delete("/:taskId/submissions/:submissionId", deleteSubmissionValidator, deleteSubmission);
 
 module.exports = router;

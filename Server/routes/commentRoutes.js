@@ -4,6 +4,7 @@ const router = express.Router({ mergeParams: true });
 const {
   addComment,
   getComments,
+  editComment,
   deleteComment,
 } = require("../controllers/commentController");
 
@@ -12,6 +13,7 @@ const authMiddleware = require("../middlewares/authMiddleware");
 const {
   addCommentValidator,
   getCommentsValidator,
+  editCommentValidator,
   deleteCommentValidator,
 } = require("../validators/commentValidator");
 
@@ -24,6 +26,9 @@ router.route("/")
   .post(addCommentValidator, addComment)
   .get(getCommentsValidator, getComments);
   
+
+// PATCH /api/v1/nestas/:nestaId/comments/:commentId - edit comment
+router.patch("/:commentId", editCommentValidator, editComment);
 
 // DELETE /api/v1/nestas/:nestaId/comments/:commentId - delete comment
 router.delete("/:commentId", deleteCommentValidator, deleteComment);

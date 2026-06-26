@@ -67,3 +67,33 @@ exports.deleteCommentValidator = [
     next();
   }),
 ];
+
+exports.editCommentValidator = [
+  param("nestaId")
+    .isMongoId().withMessage("Invalid Nesta ID"),
+
+  param("commentId")
+    .isMongoId().withMessage("Invalid Comment ID"),
+
+  body("content")
+    .trim()
+    .notEmpty().withMessage("Comment content is required")
+    .isLength({ max: 500 }).withMessage("Comment cannot exceed 500 characters"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const comment = await Comment.findById(req.params.commentId);
+    if (!comment) {
+      return next(new ApiError("Comment not found", 404));
+    }
+    if (comment.nestaId.toString() !== req.params.nestaId) {
+      return next(new ApiError("Comment does not belong to this nesta", 404));
+    }
+    if (comment.user.toString() !== req.user._id.toString()) {
+      return next(new ApiError("Only the comment owner can edit this comment", 403));
+    }
+    req.commentDoc = comment;
+    next();
+  }),
+];

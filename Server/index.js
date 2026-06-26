@@ -62,12 +62,14 @@ const roomRoutes = require("./routes/roomRoutes");
 const taskRoutes = require("./routes/taskRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const nestaRoutes = require("./routes/nestaRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 
 app.use("/api/v1/auth" , authRouter);
 app.use("/api/v1/rooms", roomRoutes);
 app.use("/api/v1/tasks", taskRoutes);
 app.use("/api/v1/profile", profileRoutes);
 app.use("/api/v1/nestas", nestaRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
 
 app.use(globalError);
 const PORT = process.env.PORT || 8000;

@@ -222,6 +222,67 @@ exports.resetPassword = asyncHandler(async (req, res, next) => {
     });
 });
 
+// ================= RESEND EMAIL VERIFICATION =================
+exports.resendVerificationEmail = asyncHandler(async (req, res, next) => {
+  const user = req.userDoc;
+
+  if (user.isVerified) {
+    return next(new ApiError("Email is already verified", 400));
+  }
+
+  // Invalidate old token by setting new one
+  const verifyToken = crypto.randomBytes(32).toString("hex");
+  const hashedVerifyToken = hashToken(verifyToken);
+
+  user.emailVerifyToken = hashedVerifyToken;
+  user.emailVerifyExpire = Date.now() + 1000 * 60 * 30; // 30 minutes
+
+  await user.save();
+
+  const link = `${process.env.CLIENT_URL}/verify-email/${verifyToken}`;
+
+  await sendEmail({
+    to: user.email,
+    subject: "Verify your email",
+    text: `Verify your email: ${link}`,
+  });
+
+  res.status(200).json({ message: "Verification email sent successfully" });
+});
+
+// ================= GET 2FA STATUS =================
+exports.get2FAStatus = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user.id).select("twoFactorEnabled");
+
+  res.status(200).json({
+    success: true,
+    twoFactorEnabled: user.twoFactorEnabled,
+  });
+});
+
+// ================= DISABLE 2FA =================
+exports.disable2FA = asyncHandler(async (req, res, next) => {
+  const { password } = req.body;
+  const user = await User.findById(req.user.id).select("+password");
+
+  // Verify current password
+  const isPasswordValid = await bcrypt.compare(password, user.password);
+  if (!isPasswordValid) {
+    return next(new ApiError("Current password is incorrect", 401));
+  }
+
+  // Remove 2FA secret and disable 2FA
+  user.twoFactorSecret = undefined;
+  user.twoFactorEnabled = false;
+
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "2FA disabled successfully",
+  });
+});
+
 // ================= LOGOUT =================
 exports.logout = asyncHandler(async (req, res) => {
   res.clearCookie("accessToken");

@@ -139,3 +139,144 @@ exports.deleteRoomImageValidator = [
 
   roomExistsAndFatherGuard,
 ];
+
+// ================= ROOM CRUD VALIDATORS =================
+
+exports.getRoomByIdValidator = [
+  param("roomId")
+    .notEmpty().withMessage("Room ID is required")
+    .isMongoId().withMessage("Invalid room ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const room = await Room.findById(req.params.roomId);
+    if (!room) {
+      return next(new ApiError("Room not found", 404));
+    }
+
+    // Check if user is a member of the room
+    const member = await RoomMember.findOne({
+      roomId: req.params.roomId,
+      userId: req.user._id,
+      status: "approved",
+    });
+
+    if (!member) {
+      return next(new ApiError("Not a member of this room", 403));
+    }
+    req.roomDoc = room;
+    next();
+  }),
+];
+
+exports.updateRoomValidator = [
+  param("roomId")
+    .notEmpty().withMessage("Room ID is required")
+    .isMongoId().withMessage("Invalid room ID"),
+
+  body("name")
+    .optional()
+    .trim()
+    .isLength({ min: 2, max: 50 }).withMessage("Room name must be between 2 and 50 characters"),
+
+  body("description")
+    .optional()
+    .trim()
+    .isLength({ max: 200 }).withMessage("Description must be less than 200 characters"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const room = await Room.findById(req.params.roomId);
+    if (!room) {
+      return next(new ApiError("Room not found", 404));
+    }
+
+    // Check if user is the father
+    if (room.fatherId.toString() !== req.user._id.toString()) {
+      return next(new ApiError("Only room owner can update room", 403));
+    }
+    req.roomDoc = room;
+    next();
+  }),
+];
+
+exports.deleteRoomValidator = [
+  param("roomId")
+    .notEmpty().withMessage("Room ID is required")
+    .isMongoId().withMessage("Invalid room ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const room = await Room.findById(req.params.roomId);
+    if (!room) {
+      return next(new ApiError("Room not found", 404));
+    }
+
+    // Check if user is the father
+    if (room.fatherId.toString() !== req.user._id.toString()) {
+      return next(new ApiError("Only room owner can delete room", 403));
+    }
+    req.roomDoc = room;
+    next();
+  }),
+];
+
+// ================= ROOM MEMBERSHIP VALIDATORS =================
+
+exports.removeMemberValidator = [
+  param("roomId")
+    .notEmpty().withMessage("Room ID is required")
+    .isMongoId().withMessage("Invalid room ID"),
+
+  param("userId")
+    .notEmpty().withMessage("User ID is required")
+    .isMongoId().withMessage("Invalid user ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const room = await Room.findById(req.params.roomId);
+    if (!room) {
+      return next(new ApiError("Room not found", 404));
+    }
+
+    // Check if user is the father
+    if (room.fatherId.toString() !== req.user._id.toString()) {
+      return next(new ApiError("Only room owner can remove members", 403));
+    }
+
+    // Prevent father from removing themselves
+    if (room.fatherId.toString() === req.params.userId) {
+      return next(new ApiError("Father cannot remove themselves", 400));
+    }
+
+    next();
+  }),
+];
+
+exports.leaveRoomValidator = [
+  param("roomId")
+    .notEmpty().withMessage("Room ID is required")
+    .isMongoId().withMessage("Invalid room ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const room = await Room.findById(req.params.roomId);
+    if (!room) {
+      return next(new ApiError("Room not found", 404));
+    }
+
+    // Check if user is the father
+    if (room.fatherId.toString() === req.user._id.toString()) {
+      return next(new ApiError("Father cannot leave room. Delete the room instead.", 400));
+    }
+
+
+
+    next();
+  }),
+];

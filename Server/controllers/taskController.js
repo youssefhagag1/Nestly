@@ -6,6 +6,8 @@ const ApiError = require("../utils/ApiError");
 const Task = require("../models/taskModel");
 const Room = require("../models/roomModel");
 const RoomMember = require("../models/roomMemberModel");
+const Submission = require("../models/submissionModel");
+const { buildFilter, buildSort, paginate } = require("../services/paginationService");
 
 exports.createTask = asyncHandler(async (req, res, next) => {
   const roomId = req.params.roomId || req.body.roomId;
@@ -34,6 +36,12 @@ exports.createTask = asyncHandler(async (req, res, next) => {
 
   const task = await Task.create(taskData);
 
+  // Notify the assigned user about the new task
+  if (task.assignedTo && task.assignedTo.toString() !== req.user._id.toString()) {
+    const { notifyTaskAssigned } = require("../services/notificationService");
+    await notifyTaskAssigned(task.assignedTo, task.title, task._id);
+  }
+
   res.status(201).json({
     success: true,
     task,
@@ -44,37 +52,53 @@ exports.createTask = asyncHandler(async (req, res, next) => {
 exports.getRoomTasks = asyncHandler(async (req, res, next) => {
   const { roomId } = req.params;
 
-  const tasks = await Task.find({ roomId })
+  // Build filter
+  const allowedFilters = ["status"];
+  const filter = buildFilter({ roomId }, req.query, allowedFilters);
+
+  // Build sort
+  const allowedSortFields = ["createdAt", "dueDate", "title"];
+  const sort = buildSort(req.query, allowedSortFields, "-createdAt");
+
+  // Build query
+  const query = Task.find(filter)
     .populate("assignedTo", "name")
     .populate("createdBy", "name")
-    .sort("-createdAt");
+    .sort(sort);
+
+  // Paginate
+  const { data, pagination } = await paginate(query, req.query.page, req.query.limit);
 
   res.status(200).json({
     success: true,
-    count: tasks.length,
-    tasks,
+    pagination,
+    data,
   });
 });
 
 
 exports.getMyTasks = asyncHandler(async (req, res) => {
-  const filter = {
-    assignedTo: req.user._id,
-  };
+  // Build filter
+  const allowedFilters = ["status"];
+  const filter = buildFilter({ assignedTo: req.user._id }, req.query, allowedFilters);
 
-  if (req.query.status) {
-    filter.status = req.query.status;
-  }
+  // Build sort
+  const allowedSortFields = ["createdAt", "dueDate", "title"];
+  const sort = buildSort(req.query, allowedSortFields, "-createdAt");
 
-  const tasks = await Task.find(filter)
+  // Build query
+  const query = Task.find(filter)
     .populate("createdBy", "name")
     .populate("roomId", "name")
-    .sort("-createdAt");
+    .sort(sort);
+
+  // Paginate
+  const { data, pagination } = await paginate(query, req.query.page, req.query.limit);
 
   res.status(200).json({
     success: true,
-    count: tasks.length,
-    tasks,
+    pagination,
+    data,
   });
 });
 
@@ -128,4 +152,83 @@ exports.deleteTask = asyncHandler(async (req, res, next) => {
   await task.deleteOne();
 
   res.json({ success: true, message: "Task deleted" });
+});
+
+// ================= SUBMISSION MANAGEMENT =================
+
+// GET /api/v1/tasks/:taskId/submissions/:submissionId - Get submission details
+exports.getSubmission = asyncHandler(async (req, res, next) => {
+  const { taskId, submissionId } = req.params;
+
+  const submission = await Submission.findById(submissionId)
+    .populate("submittedBy", "name email");
+
+  if (!submission) {
+    return next(new ApiError("Submission not found", 404));
+  }
+
+  // Verify submission belongs to the task
+  if (submission.taskId.toString() !== taskId) {
+    return next(new ApiError("Submission does not belong to this task", 404));
+  }
+
+  res.status(200).json({
+    success: true,
+    submission,
+  });
+});
+
+// DELETE /api/v1/tasks/:taskId/submissions/:submissionId - Delete submission
+exports.deleteSubmission = asyncHandler(async (req, res, next) => {
+  const { taskId, submissionId } = req.params;
+
+  const submission = await Submission.findById(submissionId);
+  
+  if (!submission) {
+    return next(new ApiError("Submission not found", 404));
+  }
+
+  // Verify submission belongs to the task
+  if (submission.taskId.toString() !== taskId) {
+    return next(new ApiError("Submission does not belong to this task", 404));
+  }
+
+  const task = await Task.findById(taskId);
+  if (!task) {
+    return next(new ApiError("Task not found", 404));
+  }
+
+  const room = await Room.findById(task.roomId);
+  if (!room) {
+    return next(new ApiError("Room not found", 404));
+  }
+
+  const isOwner = submission.submittedBy.toString() === req.user._id.toString();
+  const isFather = room.fatherId.toString() === req.user._id.toString();
+
+  // Check permissions: owner can delete before review, father can delete anytime
+  if (!isOwner && !isFather) {
+    return next(new ApiError("Not authorized to delete this submission", 403));
+  }
+
+  if (isOwner && submission.status !== "pending") {
+    return next(new ApiError("Cannot delete submission after review has started", 400));
+  }
+
+  // Delete submission images from filesystem
+  if (submission.images && submission.images.length > 0) {
+    for (const imageUrl of submission.images) {
+      const imagePath = path.join(__dirname, "..", imageUrl);
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+  }
+
+  await Submission.findByIdAndDelete(submissionId);
+
+  res.status(200).json({
+    success: true,
+    message: "Submission deleted successfully",
+  });
 });

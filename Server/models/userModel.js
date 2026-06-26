@@ -1,5 +1,12 @@
 const mongoose = require("mongoose");
 
+const setImage = (doc) => {
+  if (doc.image) {
+    const imageUrl = `${process.env.BASE_URL}/users/${doc.image}`;
+    doc.image = imageUrl;
+  }
+};
+
 const userSchema = new mongoose.Schema(
   {
     name: {
@@ -84,6 +91,14 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+userSchema.post("init", (doc) => {
+  setImage(doc);
+});
+
+userSchema.post("save", (doc) => {
+  setImage(doc);
+});
 
 const User = mongoose.model('User', userSchema);
 

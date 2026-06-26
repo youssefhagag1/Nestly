@@ -1,5 +1,12 @@
 const mongoose = require("mongoose");
 
+const setImage = (doc) => {
+  if (doc.image) {
+    const imageUrl = `${process.env.BASE_URL}/rooms/${doc.image}`;
+    doc.image = imageUrl;
+  }
+};
+
 const roomSchema = new mongoose.Schema(
   {
     name: {
@@ -36,6 +43,14 @@ const roomSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+roomSchema.post("init", (doc) => {
+  setImage(doc);
+});
+
+roomSchema.post("save", (doc) => {
+  setImage(doc);
+});
 
 const Room = mongoose.model("Room", roomSchema);
 module.exports = Room;

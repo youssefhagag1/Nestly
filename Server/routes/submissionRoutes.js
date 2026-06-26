@@ -5,6 +5,7 @@ const {
   createSubmission,
   getSubmissions,
   reviewSubmission,
+  resubmitSubmission,
 } = require("../controllers/submissionController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -14,6 +15,7 @@ const {
   createSubmissionValidator,
   getSubmissionsValidator,
   reviewSubmissionValidator,
+  resubmitSubmissionValidator,
 } = require("../validators/submissionValidator");
 
 // All submission routes require authentication
@@ -27,6 +29,9 @@ router.route("/")
 
 // PATCH /api/v1/submissions/:submissionId/review - review a submission
 router.patch("/:submissionId/review", reviewSubmissionValidator, reviewSubmission);
+
+// POST /api/v1/tasks/:taskId/submissions/:submissionId/resubmit - resubmit a needs_fix submission
+router.post("/:submissionId/resubmit", uploadMultipleImages("images", 5), resubmitSubmissionValidator, resubmitSubmission);
 
 
 module.exports = router;

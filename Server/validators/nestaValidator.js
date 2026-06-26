@@ -96,3 +96,114 @@ exports.voteValidator = [
   }),
 ];
 
+exports.getMyNestasValidator = [
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    // Validate query parameters
+    if (req.query.page && isNaN(req.query.page)) {
+      return next(new ApiError("Page must be a number", 400));
+    }
+    if (req.query.limit && isNaN(req.query.limit)) {
+      return next(new ApiError("Limit must be a number", 400));
+    }
+    if (req.query.sort) {
+      const allowedSortFields = ["createdAt", "score", "totalUpVotes"];
+      const sortField = req.query.sort.startsWith("-")
+        ? req.query.sort.slice(1)
+        : req.query.sort;
+      if (!allowedSortFields.includes(sortField)) {
+        return next(
+          new ApiError(
+            `Invalid sort field. Allowed: ${allowedSortFields.join(", ")}`,
+            400
+          )
+        );
+      }
+    }
+    next();
+  }),
+];
+
+exports.getAllNestasValidator = [
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    if (req.query.page && isNaN(req.query.page)) {
+      return next(new ApiError("Page must be a number", 400));
+    }
+    if (req.query.limit && isNaN(req.query.limit)) {
+      return next(new ApiError("Limit must be a number", 400));
+    }
+    if (req.query.sort) {
+      const allowedSortModes = ["top", "new", "controversial"];
+      if (!allowedSortModes.includes(req.query.sort)) {
+        return next(
+          new ApiError(
+            `Invalid sort mode. Allowed: ${allowedSortModes.join(", ")}`,
+            400
+          )
+        );
+      }
+    }
+    next();
+  }),
+];
+
+exports.getUserNestasValidator = [
+  param("userId")
+    .isMongoId().withMessage("Invalid User ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    // Validate query parameters
+    if (req.query.page && isNaN(req.query.page)) {
+      return next(new ApiError("Page must be a number", 400));
+    }
+    if (req.query.limit && isNaN(req.query.limit)) {
+      return next(new ApiError("Limit must be a number", 400));
+    }
+    if (req.query.sort) {
+      const allowedSortFields = ["createdAt", "score", "totalUpVotes"];
+      const sortField = req.query.sort.startsWith("-")
+        ? req.query.sort.slice(1)
+        : req.query.sort;
+      if (!allowedSortFields.includes(sortField)) {
+        return next(
+          new ApiError(
+            `Invalid sort field. Allowed: ${allowedSortFields.join(", ")}`,
+            400
+          )
+        );
+      }
+    }
+    next();
+  }),
+];
+
+exports.searchNestasValidator = [
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const { q } = req.query;
+
+    if (!q || !q.trim()) {
+      return next(new ApiError("Search query parameter 'q' is required", 400));
+    }
+
+    if (q.trim().length < 2) {
+      return next(new ApiError("Search query must be at least 2 characters", 400));
+    }
+
+    if (req.query.page && isNaN(req.query.page)) {
+      return next(new ApiError("Page must be a number", 400));
+    }
+    if (req.query.limit && isNaN(req.query.limit)) {
+      return next(new ApiError("Limit must be a number", 400));
+    }
+
+    next();
+  }),
+];
+

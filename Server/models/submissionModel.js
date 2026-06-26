@@ -1,5 +1,14 @@
 const mongoose = require("mongoose");
 
+const setImages = (doc) => {
+  if (doc.images && doc.images.length > 0) {
+    const images = doc.images.map(
+      (image) => `${process.env.BASE_URL}/submissions/${image}`
+    );
+    doc.images = images;
+  }
+};
+
 const submissionSchema = new mongoose.Schema(
   {
     taskId: {
@@ -55,6 +64,14 @@ const submissionSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+submissionSchema.post("init", (doc) => {
+  setImages(doc);
+});
+
+submissionSchema.post("save", (doc) => {
+  setImages(doc);
+});
 
 const Submission = mongoose.model("Submission", submissionSchema);
 module.exports = Submission;

@@ -61,6 +61,22 @@ exports.getRoomTasksValidator = [
     .notEmpty().withMessage("Room ID is required")
     .isMongoId().withMessage("Invalid room ID"),
 
+  query("page")
+    .optional()
+    .isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+
+  query("status")
+    .optional()
+    .isIn(["pending", "submitted", "completed", "rejected"]).withMessage("Invalid status filter"),
+
+  query("sort")
+    .optional()
+    .isIn(["createdAt", "-createdAt", "dueDate", "-dueDate", "title", "-title"]).withMessage("Invalid sort field"),
+
   validatorMiddleware,
 
   asyncHandler(async (req, res, next) => {
@@ -73,9 +89,21 @@ exports.getRoomTasksValidator = [
 ];
 
 exports.getMyTasksValidator = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 }).withMessage("Limit must be between 1 and 100"),
+
   query("status")
     .optional()
     .isIn(["pending", "submitted", "completed", "rejected"]).withMessage("Invalid status filter"),
+
+  query("sort")
+    .optional()
+    .isIn(["createdAt", "-createdAt", "dueDate", "-dueDate", "title", "-title"]).withMessage("Invalid sort field"),
 
   validatorMiddleware,
 ];
@@ -173,6 +201,97 @@ exports.deleteTaskValidator = [
     }
 
     req.taskDoc = task;
+    next();
+  }),
+];
+
+// ================= SUBMISSION VALIDATORS =================
+
+exports.getSubmissionValidator = [
+  param("taskId")
+    .notEmpty().withMessage("Task ID is required")
+    .isMongoId().withMessage("Invalid task ID"),
+
+  param("submissionId")
+    .notEmpty().withMessage("Submission ID is required")
+    .isMongoId().withMessage("Invalid submission ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const submission = await Submission.findById(req.params.submissionId);
+    if (!submission) {
+      return next(new ApiError("Submission not found", 404));
+    }
+
+    // Verify submission belongs to the task
+    if (submission.taskId.toString() !== req.params.taskId) {
+      return next(new ApiError("Submission does not belong to this task", 404));
+    }
+
+    // Check if user is authorized (task creator, assigned user, or father)
+    const task = await Task.findById(req.params.taskId);
+    if (!task) {
+      return next(new ApiError("Task not found", 404));
+    }
+
+    const isCreator = task.createdBy.toString() === req.user._id.toString();
+    const isAssigned = task.assignedTo.toString() === req.user._id.toString();
+    const room = await Room.findById(task.roomId);
+    const isFather = room.fatherId.toString() === req.user._id.toString();
+
+    if (!isCreator && !isAssigned && !isFather) {
+      return next(new ApiError("Not authorized to view this submission", 403));
+    }
+
+    next();
+  }),
+];
+
+exports.deleteSubmissionValidator = [
+  param("taskId")
+    .notEmpty().withMessage("Task ID is required")
+    .isMongoId().withMessage("Invalid task ID"),
+
+  param("submissionId")
+    .notEmpty().withMessage("Submission ID is required")
+    .isMongoId().withMessage("Invalid submission ID"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const submission = await Submission.findById(req.params.submissionId);
+    if (!submission) {
+      return next(new ApiError("Submission not found", 404));
+    }
+
+    // Verify submission belongs to the task
+    if (submission.taskId.toString() !== req.params.taskId) {
+      return next(new ApiError("Submission does not belong to this task", 404));
+    }
+
+    const task = await Task.findById(req.params.taskId);
+    if (!task) {
+      return next(new ApiError("Task not found", 404));
+    }
+
+    const room = await Room.findById(task.roomId);
+    if (!room) {
+      return next(new ApiError("Room not found", 404));
+    }
+
+    const isOwner = submission.submittedBy.toString() === req.user._id.toString();
+    const isFather = room.fatherId.toString() === req.user._id.toString();
+
+    // Check permissions
+    if (!isOwner && !isFather) {
+      return next(new ApiError("Not authorized to delete this submission", 403));
+    }
+
+    if (isOwner && submission.status !== "pending") {
+      return next(new ApiError("Cannot delete submission after review has started", 400));
+    }
+
     next();
   }),
 ];

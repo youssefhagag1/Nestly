@@ -11,6 +11,9 @@ const {
   logout,
   forgotPassword,
   resetPassword,
+  resendVerificationEmail,
+  get2FAStatus,
+  disable2FA,
 } = require("../controllers/authController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -24,6 +27,8 @@ const {
   verify2FAValidator,
   forgotPasswordValidator,
   resetPasswordValidator,
+  resendVerificationValidator,
+  disable2FAValidator,
 } = require("../validators/authValidator");
 
 // auth
@@ -39,8 +44,13 @@ router.post("/refresh-token", refreshMiddleware, refreshToken);
 // logout
 router.post("/logout", logout);
 
+// resend email verification
+router.post("/resend-verification", authMiddleware, resendVerificationValidator, resendVerificationEmail);
+
 // 2FA
+router.get("/2fa/status", authMiddleware, get2FAStatus);
 router.post("/2fa/enable", authMiddleware, enable2FAValidator, enable2FA);
+router.post("/2fa/disable", authMiddleware, disable2FAValidator, disable2FA);
 router.post("/2fa/verify", verify2FAValidator, verify2FA);
 
 router.post("/forgot-password", forgotPasswordValidator, forgotPassword);

@@ -1,5 +1,14 @@
 const mongoose = require("mongoose");
 
+const setAttachments = (doc) => {
+  if (doc.attachments && doc.attachments.length > 0) {
+    const attachments = doc.attachments.map(
+      (attachment) => `${process.env.BASE_URL}/tasks/${attachment}`
+    );
+    doc.attachments = attachments;
+  }
+};
+
 const taskSchema = new mongoose.Schema(
   {
     roomId: {
@@ -55,6 +64,14 @@ const taskSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+taskSchema.post("init", (doc) => {
+  setAttachments(doc);
+});
+
+taskSchema.post("save", (doc) => {
+  setAttachments(doc);
+});
 
 const Task = mongoose.model("Task", taskSchema);
 module.exports = Task;

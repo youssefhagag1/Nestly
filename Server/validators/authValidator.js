@@ -180,3 +180,38 @@ exports.resetPasswordValidator = [
     next();
   }),
 ];
+
+// ================= RESEND EMAIL VERIFICATION =================
+exports.resendVerificationValidator = [
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const user = await User.findById(req.user.id);
+    
+    if (user.isVerified) {
+      return next(new ApiError("Email is already verified", 400));
+    }
+
+    req.userDoc = user;
+    next();
+  }),
+];
+
+// ================= DISABLE 2FA =================
+exports.disable2FAValidator = [
+  body("password")
+    .notEmpty().withMessage("Password is required"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const user = await User.findById(req.user.id).select("+password");
+    
+    if (!user.twoFactorEnabled) {
+      return next(new ApiError("2FA is not enabled", 400));
+    }
+
+    req.userDoc = user;
+    next();
+  }),
+];

@@ -9,6 +9,11 @@ const {
   getMembersOfRoom,
   uploadRoomImage,
   deleteRoomImage,
+  getRoomById,
+  updateRoom,
+  deleteRoom,
+  removeMember,
+  leaveRoom,
 } = require("../controllers/roomController");
 
 const authMiddleware = require("../middlewares/authMiddleware");
@@ -22,6 +27,11 @@ const {
   getMembersOfRoomValidator,
   uploadRoomImageValidator,
   deleteRoomImageValidator,
+  getRoomByIdValidator,
+  updateRoomValidator,
+  deleteRoomValidator,
+  removeMemberValidator,
+  leaveRoomValidator,
 } = require("../validators/roomValidator");
 
 // Nested task routes — /api/v1/rooms/:roomId/tasks
@@ -38,8 +48,17 @@ router.get("/my-rooms",  getMyRooms);
 router.patch("/members/status",  updateMemberStatusValidator, updateMemberStatus);
 router.get("/:roomId/members",  getMembersOfRoomValidator, getMembersOfRoom);
 
+// Room CRUD
+router.get("/:roomId", getRoomByIdValidator, getRoomById);
+router.patch("/:roomId", updateRoomValidator, updateRoom);
+router.delete("/:roomId", deleteRoomValidator, deleteRoom);
+
 // Room image — father only
 router.patch("/:roomId/image", uploadRoomImageValidator, uploadSingleImage("image"), uploadRoomImage);
 router.delete("/:roomId/image", deleteRoomImageValidator, deleteRoomImage);
+
+// Room Membership
+router.delete("/:roomId/members/:userId", removeMemberValidator, removeMember);
+router.post("/:roomId/leave", leaveRoomValidator, leaveRoom);
 
 module.exports = router;

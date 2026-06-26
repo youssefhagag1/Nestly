@@ -5,6 +5,7 @@ const {
   getMyProfile,
   updateMyProfile,
   uploadProfileImage,
+  deleteProfileImage,
   changePassword,
   deleteMyAccount,
 } = require("../controllers/profileController");
@@ -31,6 +32,9 @@ router.route("/me")
 
 // PATCH /api/v1/profile/me/image - upload profile image
 router.patch("/me/image", uploadSingleImage("image"), uploadProfileImage);
+
+// DELETE /api/v1/profile/me/image - delete profile image
+router.delete("/me/image", deleteProfileImage);
 
 // PATCH /api/v1/profile/change-password - change password
 router.patch("/change-password", changePasswordValidator, changePassword);

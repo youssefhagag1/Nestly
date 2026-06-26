@@ -71,6 +71,34 @@ exports.changePassword = asyncHandler(async (req, res, next) => {
   });
 });
 
+// DELETE /api/v1/profile/me/image
+exports.deleteProfileImage = asyncHandler(async (req, res, next) => {
+  const user = await User.findById(req.user._id);
+
+  if (!user.image) {
+    return next(new ApiError("No profile image to delete", 400));
+  }
+
+  // Delete image file from filesystem
+  const fs = require("fs");
+  const path = require("path");
+  const imagePath = path.join(__dirname, "..", "..", user.image);
+
+  if (fs.existsSync(imagePath)) {
+    fs.unlinkSync(imagePath);
+  }
+
+  // Remove image from database
+  user.image = "";
+  await user.save();
+
+  res.status(200).json({
+    success: true,
+    message: "Profile image deleted successfully",
+    user,
+  });
+});
+
 // DELETE /api/v1/profile/me
 exports.deleteMyAccount = asyncHandler(async (req, res, next) => {
   await User.findByIdAndDelete(req.user._id);

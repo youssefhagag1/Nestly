@@ -17,6 +17,11 @@ const nestaSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    images: [
+      {
+        type: String,
+      },
+    ],
     upVotes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -49,6 +54,9 @@ nestaSchema.virtual("totalDownVotes").get(function () {
 nestaSchema.virtual("score").get(function () {
   return this.upVotes.length - this.downVotes.length;
 });
+
+// Text index for MongoDB full-text search on content
+nestaSchema.index({ content: "text" });
 
 // Auto-populate author on find
 nestaSchema.pre(/^find/, function (next) {

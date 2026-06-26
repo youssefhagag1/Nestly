@@ -2,6 +2,7 @@ const asyncHandler = require("express-async-handler");
 const ApiError = require("../utils/ApiError");
 const Comment = require("../models/commentModel");
 const Nesta = require("../models/nestaModel");
+const { getNestaComments, updateComment } = require("../services/commentService");
 
 // Helper to sanitize comment response
 const sanitizeComment = (comment) => {
@@ -23,6 +24,14 @@ exports.addComment = asyncHandler(async (req, res) => {
     isAnonymous: isAnonymous || false,
   });
 
+  // Notify nesta author about the new comment (skip if commenting on own post)
+  const nesta = req.nestaDoc;
+  if (nesta.author._id.toString() !== req.user._id.toString()) {
+    const { notifyNestaComment } = require("../services/notificationService");
+    const commenterName = isAnonymous ? "Someone" : (req.user.name || "Someone");
+    await notifyNestaComment(nesta.author._id, commenterName, nesta._id);
+  }
+
   res.status(201).json({
     success: true,
     data: sanitizeComment(comment),
@@ -31,15 +40,30 @@ exports.addComment = asyncHandler(async (req, res) => {
 
 // GET /api/v1/nestas/:nestaId/comments - get all comments for a nesta
 exports.getComments = asyncHandler(async (req, res) => {
-  const comments = await Comment.find({ nestaId: req.nestaDoc._id })
-    .sort("-createdAt");
-
-  const sanitized = comments.map((c) => sanitizeComment(c));
+  const result = await getNestaComments(req.nestaDoc._id, req.query);
 
   res.status(200).json({
     success: true,
-    count: sanitized.length,
-    data: sanitized,
+    count: result.data.length,
+    data: result.data,
+    pagination: result.pagination,
+  });
+});
+
+// PATCH /api/v1/nestas/:nestaId/comments/:commentId - edit comment
+exports.editComment = asyncHandler(async (req, res) => {
+  const { content } = req.body;
+  const { commentId } = req.params;
+
+  const updatedComment = await updateComment(
+    commentId,
+    req.user._id,
+    content
+  );
+
+  res.status(200).json({
+    success: true,
+    data: updatedComment,
   });
 });
 

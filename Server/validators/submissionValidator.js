@@ -89,3 +89,35 @@ exports.reviewSubmissionValidator = [
     next();
   }),
 ];
+
+exports.resubmitSubmissionValidator = [
+  param("submissionId")
+    .notEmpty().withMessage("Submission ID is required")
+    .isMongoId().withMessage("Invalid submission ID"),
+
+  body("note")
+    .optional()
+    .trim()
+    .isLength({ max: 300 }).withMessage("Note must be less than 300 characters"),
+
+  validatorMiddleware,
+
+  asyncHandler(async (req, res, next) => {
+    const submission = await Submission.findById(req.params.submissionId).populate("taskId");
+    if (!submission) {
+      return next(new ApiError("Submission not found", 404));
+    }
+
+    if (submission.status !== "needs_fix") {
+      return next(new ApiError("Only submissions with status 'needs_fix' can be resubmitted", 400));
+    }
+
+    const task = submission.taskId;
+    if (task.assignedTo.toString() !== req.user._id.toString()) {
+      return next(new ApiError("Not allowed to resubmit for this task", 403));
+    }
+
+    req.submissionDoc = submission;
+    next();
+  }),
+];
