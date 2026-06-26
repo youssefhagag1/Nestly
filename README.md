@@ -12,16 +12,14 @@ A full-stack web application built with React, Node.js, Express, and MongoDB.
   - Full-text search via MongoDB text index
   - Image uploads (up to 5 per post) with Sharp optimization
 - **Comments** on Nestas with pagination and editing
-- **Notifications** — real-time event-driven notification system
+- **Notifications** — event-driven notification system
   - Room join requests and approvals
   - Task assignments
   - Submission reviews (approved, rejected, needs_fix)
   - New comments on Nestas
   - Mark as read / mark all read / delete
 - File upload functionality with Multer and Sharp image processing
-- Responsive UI with Tailwind CSS
 - Secure backend with helmet, express-validator, rate limiting, mongo-sanitize, and XSS protection
-- MongoDB database integration with optimized indexes
 
 ## Tech Stack
 
@@ -47,38 +45,21 @@ A full-stack web application built with React, Node.js, Express, and MongoDB.
 
 ## Prerequisites
 
-Before running this application, make sure you have the following installed:
-
 - Node.js (v18 or higher)
 - MongoDB (local or Atlas)
 - npm or yarn
 
 ## Installation
 
-1. Clone the repository:
 ```bash
 git clone https://github.com/youssefhagag1/Nestly.git
 cd Nestly
-```
-
-2. Install root dependencies:
-```bash
 npm install
-```
-
-3. Install client dependencies:
-```bash
 npm install --prefix Client
-```
-
-4. Install server dependencies:
-```bash
 npm install --prefix Server
 ```
 
-5. Set up environment variables:
-
-Create a `config.env` file in the `Server` directory:
+Create `Server/config.env`:
 ```env
 NODE_ENV=development
 PORT=8000
@@ -95,54 +76,1445 @@ EMAIL_USER=your_email
 EMAIL_PASS=your_email_password
 ```
 
-## Usage
-
-### Development Mode
-
-Run both client and server concurrently:
 ```bash
-npm run dev
+npm run dev        # Run both client + server
+npm run server     # Server only
+npm run client     # Client only
 ```
 
-Or run them separately:
+---
 
-Terminal 1 - Start the server:
-```bash
-npm run server
+# 📘 Full API Documentation
+
+> **Base URL:** `http://localhost:8000/api/v1`  
+> **Content-Type:** `application/json` (except file uploads use `multipart/form-data`)  
+> **Auth:** Most endpoints require `Authorization: Bearer <token>` header
+
+---
+
+## 🔐 Authentication
+
+### POST /api/v1/auth/register
+
+Register a new user account.
+
+**Request Body:**
+```json
+{
+  "name": "John Doe",
+  "email": "john@example.com",
+  "phone": "01012345678",
+  "password": "password123",
+  "age": 25,
+  "gender": "male",
+  "country": "Egypt",
+  "role": "parent"
+}
 ```
 
-Terminal 2 - Start the client:
-```bash
-npm run client
+**Validation Rules:**
+| Field | Type | Rules |
+|-------|------|-------|
+| name | String | 2-50 chars, required |
+| email | String | Valid email, required |
+| phone | String | Unique, required |
+| password | String | 6+ chars, required |
+| age | Number | 1-100, required |
+| gender | String | `male` or `female`, required |
+| country | String | Required |
+| role | String | `parent` or `child`, required |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "user": {
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "01012345678",
+    "age": 25,
+    "gender": "male",
+    "country": "Egypt",
+    "role": "parent",
+    "isVerified": false,
+    "bio": "",
+    "image": "",
+    "_id": "664f...",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  },
+  "accessToken": "eyJhbG...",
+  "refreshToken": "eyJhbG..."
+}
 ```
 
-### Client Only
-```bash
-npm run client
+---
+
+### POST /api/v1/auth/login
+
+Authenticate and receive JWT tokens.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com",
+  "password": "password123"
+}
 ```
 
-### Server Only
-```bash
-npm run server
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "user": {
+    "_id": "664f...",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "role": "parent"
+  },
+  "accessToken": "eyJhbG...",
+  "refreshToken": "eyJhbG..."
+}
 ```
 
-## Available Scripts
+**Error Response (401):**
+```json
+{
+  "success": false,
+  "message": "Invalid email or password"
+}
+```
 
-### Root Level
-- `npm run dev` - Run both client and server in development mode
-- `npm run client` - Run the client development server
-- `npm run server` - Run the server development server
+---
 
-### Client
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run lint` - Run ESLint
-- `npm run preview` - Preview production build
+### POST /api/v1/auth/refresh-token
 
-### Server
-- `npm run dev` - Start development server with nodemon
+Refresh an expired access token using a valid refresh token (sent via cookie `refreshToken`).
 
-## Project Structure
+**Cookies Required:** `refreshToken` (httpOnly)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "accessToken": "eyJhbG...",
+  "refreshToken": "eyJhbG..."
+}
+```
+
+---
+
+### POST /api/v1/auth/logout
+
+Logout by clearing auth cookies.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Logged out successfully"
+}
+```
+
+---
+
+### GET /api/v1/auth/verify-email/:token
+
+Verify email address via token from email.
+
+**URL Params:** `token` — Email verification token
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Email verified successfully"
+}
+```
+
+---
+
+### POST /api/v1/auth/resend-verification
+
+Resend email verification email.
+
+**Auth:** Required
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Verification email sent"
+}
+```
+
+---
+
+### POST /api/v1/auth/forgot-password
+
+Send password reset code to email.
+
+**Request Body:**
+```json
+{
+  "email": "john@example.com"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Reset code sent to email"
+}
+```
+
+---
+
+### PATCH /api/v1/auth/reset-password/:token
+
+Reset password with token from email.
+
+**URL Params:** `token` — Password reset token
+
+**Request Body:**
+```json
+{
+  "password": "newPassword123"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Password reset successfully"
+}
+```
+
+---
+
+### 2FA Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/api/v1/auth/2fa/status` | ✅ | Get 2FA enabled/disabled status |
+| POST | `/api/v1/auth/2fa/enable` | ✅ | Enable 2FA (body: `{ "password": "..." }`) |
+| POST | `/api/v1/auth/2fa/disable` | ✅ | Disable 2FA (body: `{ "password": "..." }`) |
+| POST | `/api/v1/auth/2fa/verify` | ❌ | Verify 2FA token (body: `{ "email": "...", "token": "..." }`) |
+
+---
+
+## 👤 Profile
+
+All profile endpoints require authentication.
+
+### GET /api/v1/profile/me
+
+Get the authenticated user's profile.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "user": {
+    "_id": "664f...",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "phone": "01012345678",
+    "age": 25,
+    "gender": "male",
+    "country": "Egypt",
+    "role": "parent",
+    "bio": "",
+    "image": "",
+    "isVerified": true,
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### PATCH /api/v1/profile/me
+
+Update profile fields.
+
+**Request Body (partial update):**
+```json
+{
+  "name": "John Updated",
+  "bio": "A short bio about me",
+  "country": "UAE"
+}
+```
+
+**Allowed Fields:** `name`, `age`, `gender`, `country`, `phone`, `bio`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "user": { "...updated user..." }
+}
+```
+
+---
+
+### PATCH /api/v1/profile/me/image
+
+Upload/update profile image.
+
+**Content-Type:** `multipart/form-data`
+**Field:** `image` (single file, image only)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "user": { "...user with new image URL..." }
+}
+```
+
+---
+
+### DELETE /api/v1/profile/me/image
+
+Delete profile image.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Profile image deleted successfully"
+}
+```
+
+---
+
+### PATCH /api/v1/profile/change-password
+
+Change account password.
+
+**Request Body:**
+```json
+{
+  "currentPassword": "oldPassword123",
+  "newPassword": "newPassword456"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Password changed successfully"
+}
+```
+
+---
+
+### DELETE /api/v1/profile/me
+
+Delete account permanently.
+
+**Request Body:**
+```json
+{
+  "password": "myPassword123"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Account deleted successfully"
+}
+```
+
+---
+
+## 🏠 Rooms
+
+All room endpoints require authentication.
+
+### POST /api/v1/rooms
+
+Create a new room. The creator becomes the **father**.
+
+**Request Body:**
+```json
+{
+  "name": "Study Group",
+  "description": "A room for studying"
+}
+```
+
+**Validation Rules:**
+| Field | Type | Rules |
+|-------|------|-------|
+| name | String | 2-50 chars, required |
+| description | String | Max 200 chars, optional |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "room": {
+    "_id": "664f...",
+    "name": "Study Group",
+    "description": "A room for studying",
+    "fatherId": "664f...",
+    "joinCode": "a3f9c2",
+    "image": "",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### POST /api/v1/rooms/join
+
+Join a room using its join code. Status is set to `pending` until approved by father.
+
+**Request Body:**
+```json
+{
+  "joinCode": "a3f9c2"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Request sent to father",
+  "member": {
+    "roomId": "664f...",
+    "userId": "664f...",
+    "roleInRoom": "son",
+    "status": "pending",
+    "_id": "664f..."
+  }
+}
+```
+
+**Notification Triggered:** Father receives `room_invite` notification.
+
+---
+
+### GET /api/v1/rooms/my-rooms
+
+Get all rooms the current user is a member of (approved only).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 2,
+  "rooms": [
+    {
+      "_id": "664f...",
+      "roomId": {
+        "_id": "664f...",
+        "name": "Study Group",
+        "fatherId": "664f...",
+        "joinCode": "a3f9c2",
+        "image": ""
+      },
+      "roleInRoom": "son",
+      "status": "approved",
+      "joinedAt": "2024-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/v1/rooms/:roomId
+
+Get room details.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "room": {
+    "_id": "664f...",
+    "name": "Study Group",
+    "description": "A room for studying",
+    "fatherId": "664f...",
+    "joinCode": "a3f9c2",
+    "image": "",
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+---
+
+### PATCH /api/v1/rooms/:roomId
+
+Update room (father only).
+
+**Request Body:**
+```json
+{
+  "name": "Updated Name",
+  "description": "Updated description"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Room updated successfully",
+  "room": { "...updated room..." }
+}
+```
+
+---
+
+### DELETE /api/v1/rooms/:roomId
+
+Delete room and all its members (father only, transactional).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Room deleted successfully"
+}
+```
+
+---
+
+### PATCH /api/v1/rooms/:roomId/image
+
+Upload/update room image (father only).
+
+**Content-Type:** `multipart/form-data`
+**Field:** `image` (single file, image only)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "room": { "...room with image URL..." }
+}
+```
+
+---
+
+### DELETE /api/v1/rooms/:roomId/image
+
+Delete room image (father only).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Room image deleted successfully"
+}
+```
+
+---
+
+### GET /api/v1/rooms/:roomId/members
+
+Get members of a room. Optional `?status=pending|approved|rejected` filter.
+
+**Query Params:** `?status=approved` (optional)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 3,
+  "members": [
+    {
+      "_id": "664f...",
+      "roomId": "664f...",
+      "userId": {
+        "_id": "664f...",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "role": "parent"
+      },
+      "roleInRoom": "father",
+      "status": "approved"
+    }
+  ]
+}
+```
+
+---
+
+### PATCH /api/v1/rooms/members/status
+
+Approve or reject a join request (father only).
+
+**Request Body:**
+```json
+{
+  "memberId": "664f...",
+  "status": "approved"
+}
+```
+
+**Status Values:** `approved`, `rejected`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "member": { "...updated member..." }
+}
+```
+
+**Notification Triggered:** If `approved`, the son receives `room_invite` notification.
+
+---
+
+### DELETE /api/v1/rooms/:roomId/members/:userId
+
+Remove a member from the room (father only).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Member removed successfully"
+}
+```
+
+---
+
+### POST /api/v1/rooms/:roomId/leave
+
+Leave a room (son only, father cannot leave).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Left room successfully"
+}
+```
+
+---
+
+## 📋 Tasks
+
+All task endpoints require authentication.
+
+### POST /api/v1/rooms/:roomId/tasks
+
+Create a new task (father only).
+
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Rules |
+|-------|------|-------|
+| title | String | 2-100 chars, required |
+| description | String | Max 500 chars, optional |
+| assignedTo | String (MongoID) | Required |
+| dueDate | String (ISO date) | Optional |
+| images | File[] | Up to 5 images, optional |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "task": {
+    "_id": "664f...",
+    "roomId": "664f...",
+    "title": "Complete Homework",
+    "description": "Solve chapter 5 problems",
+    "assignedTo": "664f...",
+    "createdBy": "664f...",
+    "status": "pending",
+    "dueDate": "2024-02-01T00:00:00.000Z",
+    "attachments": [
+      "http://localhost:8000/uploads/tasks/uuid.jpeg"
+    ],
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**Notification Triggered:** Assigned user receives `task_assigned` notification.
+
+---
+
+### GET /api/v1/rooms/:roomId/tasks
+
+Get tasks for a room (paginated, filterable).
+
+**Query Params:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| page | Number | 1 | Page number |
+| limit | Number | 10 | Items per page |
+| status | String | — | Filter by status: `pending`, `submitted`, `completed`, `rejected` |
+| sort | String | `-createdAt` | Sort field (prefix `-` for desc): `createdAt`, `dueDate`, `title` |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "pagination": {
+    "currentPage": 1,
+    "itemsPerPage": 10,
+    "totalPages": 1,
+    "totalItems": 3,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  },
+  "data": [
+    {
+      "_id": "664f...",
+      "roomId": "664f...",
+      "title": "Complete Homework",
+      "assignedTo": { "_id": "664f...", "name": "John Doe" },
+      "createdBy": { "_id": "664f...", "name": "Father" },
+      "status": "pending"
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/v1/tasks/my-tasks
+
+Get tasks assigned to the current user (paginated).
+
+**Query Params:** Same as above (`page`, `limit`, `status`, `sort`)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "pagination": { "... pagination meta ..." },
+  "data": [ "... tasks ..." ]
+}
+```
+
+---
+
+### GET /api/v1/rooms/:roomId/tasks/:taskId
+
+Get a single task by ID.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "task": { "... full task object ..." }
+}
+```
+
+---
+
+### PATCH /api/v1/rooms/:roomId/tasks/:taskId
+
+Update a task (father only, can also change assignment).
+
+**Content-Type:** `multipart/form-data`
+
+**Fields:** `title`, `description`, `assignedTo`, `dueDate`, `images` (replaces attachments)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "task": { "... updated task ..." }
+}
+```
+
+---
+
+### DELETE /api/v1/rooms/:roomId/tasks/:taskId
+
+Delete a task (father only).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Task deleted"
+}
+```
+
+---
+
+## 📤 Submissions
+
+All submission endpoints require authentication.
+
+### POST /api/v1/tasks/:taskId/submissions
+
+Submit work for a task (assigned user only).
+
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Rules |
+|-------|------|-------|
+| images | File[] | Required, up to 5 images |
+| note | String | Max 300 chars, optional |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "submission": {
+    "_id": "664f...",
+    "taskId": "664f...",
+    "submittedBy": "664f...",
+    "images": ["http://localhost:8000/uploads/submissions/uuid.jpeg"],
+    "note": "Here's my work",
+    "status": "pending",
+    "review": {
+      "comment": "",
+      "reviewedBy": null,
+      "reviewedAt": null
+    },
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+**Notification Triggered:** Father receives `submission_reviewed` notification.
+
+---
+
+### GET /api/v1/tasks/:taskId/submissions
+
+Get all submissions for a task (assigned user or father).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 1,
+  "submissions": [
+    {
+      "_id": "664f...",
+      "taskId": "664f...",
+      "submittedBy": { "_id": "664f...", "name": "John", "email": "john@..." },
+      "images": ["http://localhost:8000/uploads/submissions/uuid.jpeg"],
+      "note": "Here's my work",
+      "status": "pending",
+      "review": {
+        "comment": "",
+        "reviewedBy": null,
+        "reviewedAt": null
+      }
+    }
+  ]
+}
+```
+
+---
+
+### GET /api/v1/tasks/:taskId/submissions/:submissionId
+
+Get a single submission's details.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "submission": { "... full submission object ..." }
+}
+```
+
+---
+
+### PATCH /api/v1/submissions/:submissionId/review
+
+Review a submission (father only).
+
+**Request Body:**
+```json
+{
+  "status": "approved",
+  "comment": "Great work!"
+}
+```
+
+**Status Values:** `approved`, `rejected`, `needs_fix`
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "submission": {
+    "...",
+    "status": "approved",
+    "review": {
+      "comment": "Great work!",
+      "reviewedBy": "664f...",
+      "reviewedAt": "2024-01-02T00:00:00.000Z"
+    }
+  }
+}
+```
+
+**Notification Triggered:** Son receives one of:
+- `submission_approved`
+- `submission_rejected`
+- `submission_needs_fix`
+
+---
+
+### POST /api/v1/tasks/:taskId/submissions/:submissionId/resubmit
+
+Resubmit work after being marked as `needs_fix`. Replaces images, resets status to `pending`, clears review.
+
+**Preconditions:**
+- Submission status must be `needs_fix`
+- Only the assigned user can resubmit
+
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Rules |
+|-------|------|-------|
+| images | File[] | Required, up to 5 images (replaces old ones) |
+| note | String | Max 300 chars, optional |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "submission": {
+    "...",
+    "images": ["http://localhost:8000/uploads/submissions/new-uuid.jpeg"],
+    "status": "pending",
+    "review": {
+      "comment": "",
+      "reviewedBy": null,
+      "reviewedAt": null
+    }
+  }
+}
+```
+
+---
+
+### DELETE /api/v1/tasks/:taskId/submissions/:submissionId
+
+Delete a submission. Owner can delete before review; father can delete anytime.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Submission deleted successfully"
+}
+```
+
+---
+
+## 💬 Nestas (Social Feed)
+
+All nesta endpoints require authentication.
+
+### POST /api/v1/nestas
+
+Create a new nesta post.
+
+**Content-Type:** `multipart/form-data`
+
+| Field | Type | Rules |
+|-------|------|-------|
+| content | String | 1-1000 chars, required |
+| isAnonymous | Boolean | Optional, default: `false` |
+| images | File[] | Up to 5 images, optional |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "664f...",
+    "author": {
+      "_id": "664f...",
+      "name": "John Doe",
+      "email": "john@...",
+      "image": ""
+    },
+    "content": "Hello world!",
+    "isAnonymous": false,
+    "images": ["http://localhost:8000/uploads/nestas/uuid.jpeg"],
+    "upVotes": [],
+    "downVotes": [],
+    "totalUpVotes": 0,
+    "totalDownVotes": 0,
+    "score": 0,
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+> **Note:** When `isAnonymous: true`, the `author` field becomes the string `"Anonymous"`.
+
+---
+
+### GET /api/v1/nestas
+
+Get the nesta feed with pagination and sort modes.
+
+**Query Params:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| page | Number | 1 | Page number |
+| limit | Number | 10 | Items per page |
+| sort | String | `new` | Sort mode: `new`, `top`, `controversial` |
+
+**Sort Modes:**
+| Mode | Description |
+|------|-------------|
+| `new` | Most recent first (createdAt descending) |
+| `top` | Highest score first (`upVotes - downVotes`) |
+| `controversial` | Most total voting activity first (`upVotes + downVotes`) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "_id": "664f...",
+      "author": { "name": "John Doe", ... },
+      "content": "Hello world!",
+      "isAnonymous": false,
+      "images": [],
+      "totalUpVotes": 5,
+      "totalDownVotes": 1,
+      "score": 4,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "currentPage": 1,
+    "itemsPerPage": 10,
+    "totalPages": 1,
+    "totalItems": 2,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### GET /api/v1/nestas/search?q=
+
+Search nestas by content using MongoDB full-text search.
+
+**Query Params:**
+| Param | Type | Required | Description |
+|-------|------|----------|-------------|
+| q | String | ✅ | Search term (min 2 chars) |
+| page | Number | ❌ | Page number (default: 1) |
+| limit | Number | ❌ | Items per page (default: 10) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 1,
+  "data": [
+    {
+      "_id": "664f...",
+      "author": { "...author info..." },
+      "content": "Learning MongoDB text search!",
+      "score": 2,
+      "totalUpVotes": 3,
+      "totalDownVotes": 1,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": { "... pagination meta ..." }
+}
+```
+
+**Empty Query Response (200):**
+```json
+{
+  "success": true,
+  "count": 0,
+  "data": [],
+  "pagination": {
+    "currentPage": 1,
+    "itemsPerPage": 10,
+    "totalPages": 0,
+    "totalItems": 0,
+    "hasNextPage": false,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+### GET /api/v1/nestas/me
+
+Get the current user's nestas with pagination.
+
+**Query Params:** `page`, `limit`, `sort` (supports `createdAt`, `-createdAt`, `score`, `-score`, `totalUpVotes`, `-totalUpVotes`)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 3,
+  "data": [ "... nestas ..." ],
+  "pagination": { "... pagination meta ..." }
+}
+```
+
+---
+
+### GET /api/v1/users/:userId/nestas
+
+Get a specific user's nestas with pagination.
+
+**Query Params:** Same as `/me` endpoint.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 5,
+  "data": [ "... nestas ..." ],
+  "pagination": { "... pagination meta ..." }
+}
+```
+
+---
+
+### GET /api/v1/nestas/:id
+
+Get a single nesta by ID.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": { "... full nesta object ..." }
+}
+```
+
+---
+
+### PATCH /api/v1/nestas/:id
+
+Update a nesta post (owner only).
+
+**Content-Type:** `multipart/form-data`
+
+**Fields:** `content` (string, max 1000), `isAnonymous` (boolean), `images` (replaces existing)
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": { "... updated nesta ..." }
+}
+```
+
+---
+
+### DELETE /api/v1/nestas/:id
+
+Delete a nesta post (owner only).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Nesta deleted successfully"
+}
+```
+
+---
+
+### PATCH /api/v1/nestas/:id/upvote
+
+Upvote a nesta post. Toggles: if already upvoted → error. If had downvote → removes downvote first.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": { "... nesta with updated votes ..." }
+}
+```
+
+**Error Response (400):**
+```json
+{
+  "success": false,
+  "message": "You have already upvoted this post"
+}
+```
+
+---
+
+### PATCH /api/v1/nestas/:id/downvote
+
+Downvote a nesta post. Same toggle behavior as upvote.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": { "... nesta with updated votes ..." }
+}
+```
+
+---
+
+## 💭 Comments
+
+All comment endpoints require authentication.
+
+### POST /api/v1/nestas/:nestaId/comments
+
+Add a comment to a nesta.
+
+**Request Body:**
+```json
+{
+  "content": "Great post!",
+  "isAnonymous": false
+}
+```
+
+**Validation Rules:**
+| Field | Type | Rules |
+|-------|------|-------|
+| content | String | 1-500 chars, required |
+| isAnonymous | Boolean | Optional, default: `false` |
+
+**Success Response (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "664f...",
+    "nestaId": "664f...",
+    "user": {
+      "_id": "664f...",
+      "name": "John Doe",
+      "email": "john@...",
+      "image": ""
+    },
+    "content": "Great post!",
+    "isAnonymous": false,
+    "createdAt": "2024-01-01T00:00:00.000Z"
+  }
+}
+```
+
+> **Note:** When `isAnonymous: true`, `user` becomes `"Anonymous"`.
+> **Notification:** The nesta author receives a `comment_added` notification (unless they commented on their own post).
+
+---
+
+### GET /api/v1/nestas/:nestaId/comments
+
+Get comments for a nesta (paginated).
+
+**Query Params:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| page | Number | 1 | Page number |
+| limit | Number | 10 | Items per page |
+| sort | String | `-createdAt` | Sort field (`createdAt`, `-createdAt`) |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 2,
+  "data": [
+    {
+      "_id": "664f...",
+      "nestaId": "664f...",
+      "user": { "name": "Jane", "email": "jane@...", "image": "" },
+      "content": "Nice!",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": { "... pagination meta ..." }
+}
+```
+
+---
+
+### PATCH /api/v1/nestas/:nestaId/comments/:commentId
+
+Edit a comment (owner only).
+
+**Request Body:**
+```json
+{
+  "content": "Updated comment text"
+}
+```
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "...",
+    "content": "Updated comment text",
+    "editedAt": "2024-01-02T00:00:00.000Z"
+  }
+}
+```
+
+> **Note:** The `editedAt` field is automatically set when a comment is edited.
+
+---
+
+### DELETE /api/v1/nestas/:nestaId/comments/:commentId
+
+Delete a comment (owner only).
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Comment deleted successfully"
+}
+```
+
+---
+
+## 🔔 Notifications
+
+All notification endpoints require authentication.
+
+### GET /api/v1/notifications
+
+Get notifications for the current user (paginated, filterable).
+
+**Query Params:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| page | Number | 1 | Page number |
+| limit | Number | 20 | Items per page |
+| isRead | String | — | Filter: `"true"` (read), `"false"` (unread), omit for all |
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "count": 5,
+  "data": [
+    {
+      "_id": "664f...",
+      "recipient": "664f...",
+      "type": "task_assigned",
+      "title": "New Task Assigned",
+      "message": "You've been assigned a new task: \"Complete Homework\"",
+      "relatedId": "664f...",
+      "relatedModel": "Task",
+      "isRead": false,
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "pagination": { "... pagination meta ..." }
+}
+```
+
+**Notification Types:**
+| Type | Title | Trigger |
+|------|-------|---------|
+| `room_invite` | "New Join Request" | Son requests to join room |
+| `room_invite` | "Join Request Approved" | Father approves join |
+| `task_assigned` | "New Task Assigned" | Father creates/updates a task |
+| `submission_reviewed` | "New Submission" | Son submits work |
+| `submission_approved` | "Submission Approved" | Father approves |
+| `submission_rejected` | "Submission Rejected" | Father rejects |
+| `submission_needs_fix` | "Submission Needs Fixes" | Father marks needs_fix |
+| `comment_added` | "New Comment" | Someone comments on nesta |
+
+---
+
+### PATCH /api/v1/notifications/:id/read
+
+Mark a single notification as read.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "_id": "664f...",
+    "isRead": true,
+    "... rest of notification ..."
+  }
+}
+```
+
+---
+
+### PATCH /api/v1/notifications/read-all
+
+Mark all unread notifications as read.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "modifiedCount": 3,
+  "message": "Marked 3 notification(s) as read"
+}
+```
+
+---
+
+### DELETE /api/v1/notifications/:id
+
+Delete a notification.
+
+**Success Response (200):**
+```json
+{
+  "success": true,
+  "message": "Notification deleted successfully"
+}
+```
+
+---
+
+## 🔄 Automatic Notifications Reference
+
+| # | Event | Trigger | Recipient | Type |
+|---|-------|---------|-----------|------|
+| 1 | Room join request | `POST /api/v1/rooms/join` | Father | `room_invite` |
+| 2 | Room join approved | `PATCH /api/v1/rooms/members/status` (status=approved) | Son | `room_invite` |
+| 3 | New task assigned | `POST /api/v1/rooms/:roomId/tasks` | Assigned user | `task_assigned` |
+| 4 | Submission created | `POST /api/v1/tasks/:taskId/submissions` | Father | `submission_reviewed` |
+| 5 | Submission approved | `PATCH /api/v1/submissions/:submissionId/review` (status=approved) | Son | `submission_approved` |
+| 6 | Submission rejected | `PATCH /api/v1/submissions/:submissionId/review` (status=rejected) | Son | `submission_rejected` |
+| 7 | Submission needs fix | `PATCH /api/v1/submissions/:submissionId/review` (status=needs_fix) | Son | `submission_needs_fix` |
+| 8 | New comment on nesta | `POST /api/v1/nestas/:nestaId/comments` | Nesta author | `comment_added` |
+
+---
+
+## 📁 Project Structure
 
 ```
 Nestly/
@@ -159,184 +1531,20 @@ Nestly/
 │   └── .gitignore
 ├── Server/                          # Backend Express server
 │   ├── config/                      # Database configuration
-│   ├── controllers/                 # Route handlers
-│   │   ├── authController.js
-│   │   ├── roomController.js
-│   │   ├── taskController.js
-│   │   ├── submissionController.js
-│   │   ├── nestaController.js
-│   │   ├── commentController.js
-│   │   ├── notificationController.js
-│   │   └── profileController.js
-│   ├── middlewares/                 # Express middlewares
-│   │   ├── authMiddleware.js
-│   │   ├── errorMiddleware.js
-│   │   ├── uploadImageMiddleware.js
-│   │   └── validatorMiddleware.js
-│   ├── models/                      # Mongoose schemas
-│   │   ├── userModel.js
-│   │   ├── roomModel.js
-│   │   ├── roomMemberModel.js
-│   │   ├── taskModel.js
-│   │   ├── submissionModel.js
-│   │   ├── nestaModel.js
-│   │   ├── commentModel.js
-│   │   └── notificationModel.js
-│   ├── routes/                      # Express routers
-│   │   ├── authRouter.js
-│   │   ├── roomRoutes.js
-│   │   ├── taskRoutes.js
-│   │   ├── submissionRoutes.js
-│   │   ├── nestaRoutes.js
-│   │   ├── commentRoutes.js
-│   │   ├── notificationRoutes.js
-│   │   └── profileRoutes.js
-│   ├── services/                    # Business logic layer
-│   │   ├── paginationService.js
-│   │   ├── nestaService.js
-│   │   ├── commentService.js
-│   │   ├── submissionService.js
-│   │   └── notificationService.js
-│   ├── uploads/                     # Image storage
-│   │   ├── users/
-│   │   ├── tasks/
-│   │   ├── submissions/
-│   │   ├── nestas/
-│   │   └── rooms/
-│   ├── Utils/                       # Helper utilities
-│   │   ├── apiError.js
-│   │   ├── hashToken.js
-│   │   ├── imageProcessing.js
-│   │   ├── sendEmail.js
-│   │   └── tokens.js
-│   ├── validators/                  # Request validation
-│   │   ├── authValidator.js
-│   │   ├── roomValidator.js
-│   │   ├── taskValidator.js
-│   │   ├── submissionValidator.js
-│   │   ├── nestaValidator.js
-│   │   ├── commentValidator.js
-│   │   ├── notificationValidator.js
-│   │   └── profileValidator.js
+│   ├── controllers/                 # Route handlers (8 files)
+│   ├── middlewares/                  # Express middlewares (4 files)
+│   ├── models/                      # Mongoose schemas (8 files)
+│   ├── routes/                      # Express routers (8 files)
+│   ├── services/                    # Business logic layer (5 files)
+│   ├── uploads/                     # Image storage (5 subdirs)
+│   ├── Utils/                       # Helper utilities (5 files)
+│   ├── validators/                  # Request validation (8 files)
 │   ├── index.js
 │   ├── package.json
 │   └── config.env
-├── package.json                     # Root package.json
-├── package-lock.json
+├── package.json
 └── .gitignore
 ```
-
-## API Endpoints
-
-### Authentication
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/auth/signup` | Register a new user |
-| POST | `/api/v1/auth/login` | Login |
-| POST | `/api/v1/auth/forgotPassword` | Request password reset email |
-| POST | `/api/v1/auth/verifyResetCode` | Verify password reset code |
-| PATCH | `/api/v1/auth/resetPassword` | Reset password |
-| POST | `/api/v1/auth/refresh` | Refresh access token |
-
-### Rooms
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/rooms` | Create a room (user becomes father) |
-| GET | `/api/v1/rooms/me` | Get my joined rooms |
-| POST | `/api/v1/rooms/join` | Join a room with code (status: pending) |
-| GET | `/api/v1/rooms/:roomId` | Get room details |
-| PATCH | `/api/v1/rooms/:roomId` | Update room (father only) |
-| DELETE | `/api/v1/rooms/:roomId` | Delete room with all members (father only) |
-| PATCH | `/api/v1/rooms/:roomId/image` | Upload/update room image (father only) |
-| DELETE | `/api/v1/rooms/:roomId/image` | Delete room image (father only) |
-| GET | `/api/v1/rooms/:roomId/members` | List room members (filterable by ?status=) |
-| DELETE | `/api/v1/rooms/:roomId/members/:userId` | Remove member (father only) |
-| POST | `/api/v1/rooms/:roomId/leave` | Leave room (son only) |
-| PATCH | `/api/v1/rooms/:roomId/members/:memberId` | Approve/reject join request (father only) |
-
-### Tasks
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/rooms/:roomId/tasks` | Create a task (father only, up to 5 images) |
-| GET | `/api/v1/rooms/:roomId/tasks` | Get tasks for a room (paginated, filterable) |
-| GET | `/api/v1/tasks/my-tasks` | Get my assigned tasks (paginated) |
-| GET | `/api/v1/rooms/:roomId/tasks/:taskId` | Get task by ID |
-| PATCH | `/api/v1/rooms/:roomId/tasks/:taskId` | Update task (father only) |
-| DELETE | `/api/v1/rooms/:roomId/tasks/:taskId` | Delete task (father only) |
-
-### Submissions
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/tasks/:taskId/submissions` | Submit work (up to 5 images) |
-| GET | `/api/v1/tasks/:taskId/submissions` | Get submissions for a task |
-| GET | `/api/v1/tasks/:taskId/submissions/:submissionId` | Get submission details |
-| PATCH | `/api/v1/submissions/:submissionId/review` | Review submission (father only) |
-| POST | `/api/v1/tasks/:taskId/submissions/:submissionId/resubmit` | Resubmit after needs_fix (replaces images) |
-| DELETE | `/api/v1/tasks/:taskId/submissions/:submissionId` | Delete submission |
-
-### Nestas (Social Feed)
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/nestas` | Create a nesta (up to 5 images) |
-| GET | `/api/v1/nestas` | Get all nestas (`?sort=top\|new\|controversial`, paginated) |
-| GET | `/api/v1/nestas/search?q=` | Search nestas by content (full-text, sorted by relevance) |
-| GET | `/api/v1/nestas/me` | Get my nestas (paginated) |
-| GET | `/api/v1/users/:userId/nestas` | Get a user's nestas (paginated) |
-| GET | `/api/v1/nestas/:id` | Get single nesta |
-| PATCH | `/api/v1/nestas/:id` | Update nesta (owner only, up to 5 images) |
-| DELETE | `/api/v1/nestas/:id` | Delete nesta (owner only) |
-| PATCH | `/api/v1/nestas/:id/upvote` | Upvote a nesta |
-| PATCH | `/api/v1/nestas/:id/downvote` | Downvote a nesta |
-
-### Comments
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/nestas/:nestaId/comments` | Add a comment |
-| GET | `/api/v1/nestas/:nestaId/comments` | Get comments (paginated) |
-| PATCH | `/api/v1/nestas/:nestaId/comments/:commentId` | Edit comment (owner only) |
-| DELETE | `/api/v1/nestas/:nestaId/comments/:commentId` | Delete comment (owner only) |
-
-### Notifications
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/notifications` | Get notifications (`?isRead=true\|false`, paginated) |
-| PATCH | `/api/v1/notifications/:id/read` | Mark single notification as read |
-| PATCH | `/api/v1/notifications/read-all` | Mark all notifications as read |
-| DELETE | `/api/v1/notifications/:id` | Delete a notification |
-
-### Profile
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/profile/me` | Get my profile |
-| PATCH | `/api/v1/profile/me` | Update profile |
-| PATCH | `/api/v1/profile/image` | Upload/update profile image |
-| DELETE | `/api/v1/profile/image` | Delete profile image |
-
-## Query Parameters
-
-Endpoints supporting pagination accept:
-- `?page=1` — Page number (default: 1)
-- `?limit=10` — Items per page (default varies)
-
-Nesta feed supports:
-- `?sort=top` — Sort by score (upvotes - downvotes)
-- `?sort=new` — Sort by most recent (default)
-- `?sort=controversial` — Sort by total voting activity
-
-## Automatic Notifications
-
-The system automatically creates notifications for these events:
-
-| Event | Trigger | Recipient |
-|-------|---------|-----------|
-| Room join request | Son joins a room | Father |
-| Room approval | Father approves request | Son |
-| Task assigned | Father creates/updates task | Assigned son |
-| Submission created | Son submits work | Father |
-| Submission approved | Father approves | Son |
-| Submission rejected | Father rejects | Son |
-| Submission needs fix | Father marks needs_fix | Son |
-| New comment on nesta | User comments | Nesta author |
 
 ## Contributing
 
@@ -348,13 +1556,8 @@ The system automatically creates notifications for these events:
 
 ## License
 
-This project is licensed under the ISC License.
+ISC License
 
 ## Author
 
 Youssef Hagag
-
-## Acknowledgments
-
-- Built with modern web technologies
-- Inspired by best practices in full-stack development
